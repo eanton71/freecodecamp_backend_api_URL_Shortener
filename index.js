@@ -7,7 +7,7 @@ import  bodyParser  from 'body-parser';
 //cliente Redis
 import { createClient } from 'redis';
 // Crea una instancia del cliente Redis
-const client = createClient({
+const client = await createClient({
   password: 'TEST_test1',
   socket: {
     host: 'redis-19831.c226.eu-west-1-3.ec2.redns.redis-cloud.com',
@@ -16,7 +16,7 @@ const client = createClient({
   
   legacyMode: true
 });
-client.connect().catch(console.error)
+//client.connect().catch(console.error)
 //client.connect();
 // Basic Configuration
 const port = process.env.PORT || 3000;
