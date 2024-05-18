@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+//cliente Redis
+const redis = require('redis');
+// Crea una instancia del cliente Redis
+const client = redis.createClient();
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
