@@ -1,28 +1,37 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+//require('dotenv').config();
+import 'dotenv/config';
+import express from 'express'
+import cors from 'cors';
 const app = express();
-import { nanoid } from 'https://cdn.jsdelivr.net/npm/nanoid/nanoid.js'
-const bodyParser = require('body-parser');
+import  bodyParser  from 'body-parser';
 //cliente Redis
-const redis = require('redis');
+import { createClient } from 'redis';
 // Crea una instancia del cliente Redis
-const client = redis.createClient({
-  host: 'redis-19831.c226.eu-west-1-3.ec2.redns.redis-cloud.com',
-  port: 19831,
-  password: 'TEST_test1'
+const client = createClient({
+  password: 'TEST_test1',
+  socket: {
+    host: 'redis-19831.c226.eu-west-1-3.ec2.redns.redis-cloud.com',
+    port: 19831
+  },
+  
+  legacyMode: true
 });
+client.connect().catch(console.error)
+//client.connect();
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
 // Genera un ID único utilizando la biblioteca `shortid`
 function generateUniqueId() {
   //const nanoid = require('nanoid');
-  return nanoid();
+  const id = Math.floor(Math.random() * 1000);
+  console.log(id);
+  return id;
+
 }
 
 app.use(cors());
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use('/public', express.static(`${process.cwd()}/public`));
 
@@ -34,8 +43,8 @@ app.get('/', function (req, res) {
 app.get('/api/hello', function (req, res) {
   res.json({ greeting: 'hello API' });
 });
-app.post('/api/shorturl',  (req, res) => {
-console.log(req.body);
+app.post('/api/shorturl', (req, res) => {
+  console.log(req.body);
   const url = req.body.url;
 
   // Genera un ID único para la URL
