@@ -2,6 +2,8 @@
 import 'dotenv/config';
 import express from 'express'
 import cors from 'cors';
+
+import dns from 'dns';
 const app = express();
 import bodyParser from 'body-parser';
 //cliente Redis
@@ -9,7 +11,7 @@ import { createClient } from 'redis';
 // Crea una instancia del cliente Redis
 const client = await createClient({
   password: 'TEST_test1',
-  username:'url',
+  username: 'url',
   socket: {
     host: 'redis-19831.c226.eu-west-1-3.ec2.redns.redis-cloud.com',
     port: 19831
@@ -46,26 +48,37 @@ app.get('/', function (req, res) {
 app.get('/api/hello', function (req, res) {
   res.json({ greeting: 'hello API' });
 });
+app.get('/api/shorturl:id', function (req, res) {
+  res.json({ greeting: 'hello API' });
+});
 app.post('/api/shorturl', (req, res) => {
   console.log(req.body);
-  const url = req.body.url;
 
-  // Genera un ID único para la URL
-  const id = generateUniqueId();
-
-  // Guarda la URL en Redis utilizando el ID como clave
-  client.set(id, url, (err, reply) => {
+  dns.lookup(req.body.url, (err, url_Ip) => {
     if (err) {
-      console.error('Error al guardar la URL', err);
-      return res.status(500).json({ error: 'Error al guardar la URL' });
+      //If url is not valid -> respond error
+      console.log(url_Ip);
+      return res.json({ error: 'invalid url' });
+    }
+    else {
+      const url = req.body.url;
+
+      // Genera un ID único para la URL
+      const id = generateUniqueId();
+
+      // Guarda la URL en Redis utilizando el ID como clave
+      client.set(id, url, (err, reply) => {
+        if (err) {
+          console.error('Error al guardar la URL', err);
+          return res.status(500).json({ error: 'Error al guardar la URL' });
+        }
+        res.json({
+          original_url: req.body.url,
+          short_url: id
+        });
+      });
     }
 
-    // Devuelve la URL generada que incluye el ID
-    //var generatedUrl = `https://your-backend-api-url/${id}`;
-    res.json({
-      original_url: req.body.url,
-      short_url: id
-    });
   });
 
 
