@@ -4,6 +4,7 @@ import express from 'express'
 import cors from 'cors';
 
 import dns from 'dns';
+import url from 'node:url';
 const app = express();
 import bodyParser from 'body-parser';
 //cliente Redis
@@ -52,9 +53,9 @@ app.get('/api/shorturl:id', function (req, res) {
   res.json({ greeting: 'hello API' });
 });
 app.post('/api/shorturl', (req, res) => {
-  console.log(req.body);
-
-  dns.lookup(req.body.url, (err, url_Ip) => {
+  console.log(req.body.url);
+  let urlRegex = /https:\/\/www.|http:\/\/www./g;
+  dns.lookup(req.body.url.replace(urlRegex, ""), (err, url_Ip) => {
     if (err) {
       //If url is not valid -> respond error
       console.log(url_Ip);
