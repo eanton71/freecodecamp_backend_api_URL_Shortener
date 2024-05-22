@@ -3,11 +3,11 @@ import 'dotenv/config';
 import express from 'express'
 import cors from 'cors';
 
-import dns from 'dns';
-const app = express();
 import bodyParser from 'body-parser';
 //cliente Redis
 import { createClient } from 'redis';
+import dns from 'dns';
+const app = express();
 // Crea una instancia del cliente Redis
 const client = await createClient({
   password: 'TEST_test1',
@@ -16,13 +16,10 @@ const client = await createClient({
     host: 'redis-19831.c226.eu-west-1-3.ec2.redns.redis-cloud.com',
     port: 19831
   },
-
   legacyMode: true
 })
-  .on('error', err => console.log('Redis Client Error', err))
-  .connect();
-//client.connect().catch(console.error)
-//client.connect();
+.on('error', err => console.log('Redis Client Error', err))
+.connect(); 
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
@@ -32,7 +29,6 @@ function generateUniqueId() {
   const id = Math.floor(Math.random() * 1000);
   console.log(id);
   return id;
-
 }
 
 app.use(cors());
@@ -45,10 +41,14 @@ app.get('/', function (req, res) {
 });
 
 // Your first API endpoint
-app.get('/api/hello', function (req, res) {
-  res.json({ greeting: 'hello API' });
+app.get('/api/hello/:hola', async (req, res) => {
+  res.json({ greeting: 'hello API' + req.params.hola });
 });
-app.get('/api/shorturl/:id', async function (req, res) {
+app.get('/api/shorturldb', async (req,res )=> {
+  res.json({});
+});
+app.get('/api/shorturl/:id', async (req, res) => {
+  console.log("req: " + req.params);
   const value = await client.get(req.params.id);
   console.log("rediresct: " + value);
   res.redirect(value);
