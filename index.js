@@ -4,7 +4,6 @@ import express from 'express'
 import cors from 'cors';
 
 import dns from 'dns';
-import url from 'node:url';
 const app = express();
 import bodyParser from 'body-parser';
 //cliente Redis
@@ -49,13 +48,16 @@ app.get('/', function (req, res) {
 app.get('/api/hello', function (req, res) {
   res.json({ greeting: 'hello API' });
 });
-app.get('/api/shorturl:id', function (req, res) {
-  res.json({ greeting: 'hello API' });
+app.get('/api/shorturl/:id', async function (req, res) {
+  const value = await client.get(req.params.id);
+  console.log("rediresct: " + value);
+  res.redirect(value);
 });
 app.post('/api/shorturl', (req, res) => {
-  console.log(req.body.url);
-  let urlRegex = /https:\/\/www.|http:\/\/www./g;
-  dns.lookup(req.body.url.replace(urlRegex, ""), (err, url_Ip) => {
+
+  let urlRegex = /https:\/\/www.|https:\/\/|http:\/\/www.|http:\/\/|\//g;
+  console.log(req.body.url.replace(urlRegex, ""));
+  dns.lookup(req.body.url.replace(urlRegex, ""), async (err, url_Ip) => {
     if (err) {
       //If url is not valid -> respond error
       console.log(url_Ip);
@@ -68,7 +70,7 @@ app.post('/api/shorturl', (req, res) => {
       const id = generateUniqueId();
 
       // Guarda la URL en Redis utilizando el ID como clave
-      client.set(id, url, (err, reply) => {
+      await client.set(id, url, (err, reply) => {
         if (err) {
           console.error('Error al guardar la URL', err);
           return res.status(500).json({ error: 'Error al guardar la URL' });
