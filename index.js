@@ -46,6 +46,16 @@ app.get('/api/hello/:hola', async (req, res) => {
 });
 app.get('/api/shorturldb', async (req, res) => {
   // Usage
+  getAllKeysAndValues((err, values) => {
+    if (err) {
+      console.error('Error retrieving keys and values', err);
+    } else {
+      console.log('Keys and Values:', values);
+      res.json(values);
+    }
+  });
+});
+/*
   getAllKeysAndValues()
     .then((values) => {
       console.log('Keys and Values:', values);
@@ -54,12 +64,23 @@ app.get('/api/shorturldb', async (req, res) => {
       console.error('Error retrieving keys and values', err);
     });
   res.json({});
-});
+});*/
 app.get('/api/shorturl/:id', async (req, res) => {
   console.log("req: " + req.params.id);
-  const value = await client.get(req.params.id.toString());
-  console.log("url: " + value);
-  res.json({ url: req.params.id, value: " " + value });
+  ///const value = await client.get(req.params.id.toString());
+  //console.log("url: " + value);
+  
+
+  getValueByKey(req.params.id, (err, value) => {
+    if (err) {
+      console.error('Error al obtener el valor', err);
+    } else {
+      res.redirect(value);
+      //res.json({ url: req.params.id, value: " " + value });
+    }
+  });
+
+
 });
 app.post('/api/shorturl', (req, res) => {
 
@@ -98,7 +119,17 @@ app.post('/api/shorturl', (req, res) => {
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
 });
-/*
+// Obtener el valor de una clave
+function getValueByKey(key, callback) {
+  client.get(key, (err, reply) => {
+    if (err) {
+      console.error('Error al obtener el valor', err);
+      callback(err, null);
+    } else {
+      callback(null, reply);
+    }
+  });
+}
 function getAllKeysAndValues(callback) {
   let cursor = '0';
   let keys = [];
@@ -172,8 +203,10 @@ function getValues(keys, callback) {
     });
   });
 }
-*/
+
 // Retrieve all the keys and values
+
+/*
 async function getAllKeysAndValues() {
   let cursor = '0';
   let keys = [];
@@ -222,5 +255,5 @@ async function getValues(keys) {
 
   return values;
 }
-
+*/
 
