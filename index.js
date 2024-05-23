@@ -45,13 +45,14 @@ app.get('/api/hello/:hola', async (req, res) => {
   res.json({ greeting: 'hello API' + req.params.hola });
 });
 app.get('/api/shorturldb', async (req, res) => {
-  getAllKeysAndValues((err, values) => {
-    if (err) {
-      console.error('Error retrieving keys and values', err);
-    } else {
+  // Usage
+  getAllKeysAndValues()
+    .then((values) => {
       console.log('Keys and Values:', values);
-    }
-  });
+    })
+    .catch((err) => {
+      console.error('Error retrieving keys and values', err);
+    });
   res.json({});
 });
 app.get('/api/shorturl/:id', async (req, res) => {
@@ -97,6 +98,7 @@ app.post('/api/shorturl', (req, res) => {
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
 });
+/*
 function getAllKeysAndValues(callback) {
   let cursor = '0';
   let keys = [];
@@ -170,12 +172,55 @@ function getValues(keys, callback) {
     });
   });
 }
+*/
+// Retrieve all the keys and values
+async function getAllKeysAndValues() {
+  let cursor = '0';
+  let keys = [];
 
-// Usage
-getAllKeysAndValues((err, values) => {
-  if (err) {
-    console.error('Error retrieving keys and values', err);
-  } else {
-    console.log('Keys and Values:', values);
+  async function scanNextBatch() {
+    const [newCursor, batchKeys] = await client.scanAsync(cursor, 'MATCH', '*', 'COUNT', '100');
+
+    cursor = newCursor;
+
+    if (batchKeys.length > 0) {
+      keys.push(...batchKeys);
+    }
+
+    if (cursor === '0') {
+      // All keys have been scanned, retrieve values
+      const values = await getValues(keys);
+      return values;
+    } else {
+      // Continue scanning
+      return scanNextBatch();
+    }
   }
-});
+
+  return scanNextBatch();
+}
+
+// Retrieve values for the keys
+async function getValues(keys) {
+  const values = {};
+
+  for (const key of keys) {
+    const dataType = await client.typeAsync(key);
+
+    if (dataType === 'hash') {
+      const value = await client.hgetallAsync(key);
+      values[key] = value;
+    } else if (dataType === 'string') {
+      const value = await client.getAsync(key);
+      values[key] = value;
+    } else {
+      // Data type not supported
+      console.error('Unsupported data type for key', key);
+      throw new Error('Unsupported data type');
+    }
+  }
+
+  return values;
+}
+
+
