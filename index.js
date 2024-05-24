@@ -88,16 +88,35 @@ app.post('/api/shorturl', (req, res) => {
         } else {
           console.log('Clave única generada:', id);
           // Guarda la URL en Redis utilizando el ID como clave
-          client.set(id, url, (err, reply) => {
+          /* client.set(id, url, (err, reply) => {
+             if (err) {
+               console.error('Error al guardar la URL', err);
+               return res.status(500).json({ error: 'Error al guardar la URL' });
+             }
+             return res.json({
+               original_url: req.body.url,
+               short_url: id
+             });
+           });*/
+
+
+          // Uso de ejemplo
+          //const short_url = 'mi-clave';
+          //const original_url = 'mi-valor';
+
+          saveKeyValue(id, url, (err, result) => {
             if (err) {
-              console.error('Error al guardar la URL', err);
-              return res.status(500).json({ error: 'Error al guardar la URL' });
+              console.error('Error al guardar la clave:valor', err);
+            } else {
+              return res.json({
+                original_url: req.body.url,
+                short_url: id
+              });
+              console.log('Clave:Valor guardado:', result.key, result.value);
             }
-            return res.json({
-              original_url: req.body.url,
-              short_url: id
-            });
           });
+
+
         }
       });
     }
@@ -231,6 +250,7 @@ function checkKeyExists(key, callback) {
 }
 
 // Uso de ejemplo
+/*
 const key = 'mi-clave'; // La clave que quieres verificar
 
 checkKeyExists(key, (err, exists) => {
@@ -239,7 +259,7 @@ checkKeyExists(key, (err, exists) => {
   } else {
     console.log('La clave existe:', exists);
   }
-});
+});*/
 // Obtener el número de claves en la base de datos
 function getKeysCount(callback) {
   client.dbsize((err, reply) => {
@@ -261,7 +281,43 @@ getKeysCount((err, count) => {
   }
 });
 
+// Guardar una clave:valor y comprobar si el valor ya existe
+function saveKeyValue(key, value, callback) {
+  client.get(key, (err, reply) => {
+    if (err) {
+      console.error('Error al obtener el valor', err);
+      callback(err, null);
+    } else {
+      if (reply !== null) {
+        // El valor ya existe, retornar la clave:valor existente
+        callback(null, { key, value: reply });
+      } else {
+        // El valor no existe, guardar la clave:valor
+        client.set(key, value, (err, reply) => {
+          if (err) {
+            console.error('Error al guardar el valor', err);
+            callback(err, null);
+          } else {
+            // Retornar la clave:valor guardada
+            callback(null, { key, value });
+          }
+        });
+      }
+    }
+  });
+}
+/*
+// Uso de ejemplo
+const short_url = 'mi-clave';
+const original_url = 'mi-valor';
 
+saveKeyValue(short_url, original_url, (err, result) => {
+  if (err) {
+    console.error('Error al guardar la clave:valor', err);
+  } else {
+    console.log('Clave:Valor guardado:', result.key, result.value);
+  }
+});*/
 
 
 // Retrieve all the keys and values
