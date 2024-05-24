@@ -87,22 +87,7 @@ app.post('/api/shorturl', (req, res) => {
           console.error('Error al generar la clave única', err);
         } else {
           console.log('Clave única generada:', id);
-          // Guarda la URL en Redis utilizando el ID como clave
-          /* client.set(id, url, (err, reply) => {
-             if (err) {
-               console.error('Error al guardar la URL', err);
-               return res.status(500).json({ error: 'Error al guardar la URL' });
-             }
-             return res.json({
-               original_url: req.body.url,
-               short_url: id
-             });
-           });*/
-
-
-          // Uso de ejemplo
-          //const short_url = 'mi-clave';
-          //const original_url = 'mi-valor';
+          // Guarda la URL en Redis utilizando el ID como clave      
 
           saveKeyValue(id, url, (err, result) => {
             if (err) {
@@ -116,11 +101,9 @@ app.post('/api/shorturl', (req, res) => {
             }
           });
 
-
         }
       });
     }
-
   });
 
 
@@ -284,12 +267,15 @@ getKeysCount((err, count) => {
 // Guardar una clave:valor y comprobar si el valor ya existe
 function saveKeyValue(key, value, callback) {
   client.get(key, (err, reply) => {
+
     if (err) {
       console.error('Error al obtener el valor', err);
       callback(err, null);
     } else {
+      console.log('reply ', reply);
       if (reply !== null) {
         // El valor ya existe, retornar la clave:valor existente
+        console.log('El valor ya existe', err);
         callback(null, { key, value: reply });
       } else {
         // El valor no existe, guardar la clave:valor
