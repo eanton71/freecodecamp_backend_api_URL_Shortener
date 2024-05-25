@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import express from 'express'
 import cors from 'cors';
-
+import {promisify} from 'util';
 import bodyParser from 'body-parser';
 //cliente Redis
 import { createClient } from 'redis';
@@ -27,9 +27,49 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use('/public', express.static(`${process.cwd()}/public`));
 
-app.get('/', function (req, res) {
+// Convertimos los métodos Redis en promesas para poder utilizar async/await
+const getAsync = promisify(client.get).bind(client);
+const setAsync = promisify(client.set).bind(client);
+const incrAsync = promisify(client.incr).bind(client);
+const dnsLookupAsync = promisify(dns.lookup).bind(dns);
+app.get('/',  async (req, res) => {
+  const puntero = await getAsync('puntero')
+  .then(() => );
+  !puntero ? await setAsync(`puntero`, 0): console.log(puntero);
   res.sendFile(process.cwd() + '/views/index.html');
 });
+
+app.post('/api/shorturl', async (req, res) => {
+  let urlRegex = /https:\/\/www.|https:\/\/|http:\/\/www.|http:\/\/|\/ /g;
+  //const url = req.body.url;
+  const url = new URL(req.body.url);
+  const hostname = url.hostname;
+  console.log(hostname);
+  dnsLookupAsync(hostname)
+  .then((adress) => {
+    console.log(adress)
+
+  })
+  .catch((e) => console.error(e)); 
+  /*
+  console.log(url.replace(urlRegex, ""));
+  dns.lookup(url.replace(urlRegex, ""), async (err, url_Ip) => {
+    if (err) { // URL no valida
+      console.log(url_Ip);
+      return res.json({ error: 'invalid url' });
+    }
+    else {
+      const puntero = await getAsync('puntero')
+      .error();
+      await setAsync(url,puntero);
+      await incrAsync('puntero');
+    }
+  })
+  */
+
+
+});
+
 
 // Your first API endpoint
 app.get('/api/hello/:hola', async (req, res) => {
@@ -68,72 +108,13 @@ app.get('/api/shorturl/:id', async (req, res) => {
 
 
 });
-app.post('/api/shorturl', (req, res) => {
-  let urlRegex = /https:\/\/www.|https:\/\/|http:\/\/www.|http:\/\/|\/ /g;
-  console.log(req.body.url.replace(urlRegex, ""));
-  dns.lookup(req.body.url.replace(urlRegex, ""), async (err, url_Ip) => {
-    if (err) {
-      //If url is not valid -> respond error
-      console.log(url_Ip);
-      return res.json({ error: 'invalid url' });
-    }
-    else {
-      const url = req.body.url;
-      // Genera un ID único para la URL
-      //var id;
-      // Uso de ejemplo
-      generateUniqueId((err, id) => {
-        if (err) {
-          console.error('Error al generar la clave única', err);
-        } else {
-          console.log('Clave única generada:', id);
-          // Guarda la URL en Redis utilizando el ID como clave      
-
-          saveKeyValue(id, url, (err, result) => {
-            if (err) {
-              console.error('Error al guardar la clave:valor', err);
-            } else {
-              return res.json({
-                original_url: req.body.url,
-                short_url: id
-              });
-              console.log('Clave:Valor guardado:', result.key, result.value);
-            }
-          });
-
-        }
-      });
-    }
-  });
 
 
-
-});
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
 });
 
 
-// Genera un ID único utilizando la biblioteca `shortid`
-function generateUniqueId(callback) {
-  const id = Math.floor(Math.random() * 10000);
-
-  // Verificar si la clave ya existe en la base de datos
-  client.exists(id, (err, reply) => {
-    if (err) {
-      console.error('Error al verificar la clave', err);
-      callback(err, null);
-    } else {
-      if (reply === 1) {
-        // La clave ya existe, generar una nueva clave
-        generateUniqueId(callback);
-      } else {
-        // La clave no existe, devolverla
-        callback(null, id);
-      }
-    }
-  });
-}
 
 
 // Obtener el valor de una clave
@@ -220,6 +201,100 @@ function getValues(keys, callback) {
     });
   });
 }
+
+// Obtener el número de claves en la base de datos
+function getKeysCount(callback) {
+  client.dbsize((err, reply) => {
+    if (err) {
+      console.error('Error al obtener el número de claves', err);
+      callback(err, null);
+    } else {
+      callback(null, reply);
+    }
+  });
+}
+/*
+// Uso de ejemplo
+getKeysCount((err, count) => {
+  if (err) {
+    console.error('Error al obtener el número de claves', err);
+  } else {
+    console.log('Número de claves:', count);
+  }
+});*/
+
+// Función para guardar un par clave:valor
+function saveKeyValue(key, callback) {
+  // Comprobar si la clave ya existe
+  client.exists(key, (err, reply) => {
+    if (err) {
+      console.error('Error al comprobar la clave', err);
+      callback(err, null);
+    } else {
+      if (reply === 1) { // clave existente
+        client.get(key, (err, reply) => {
+          if (err) {
+            console.error('Error al obtener el valor', err);
+            callback(err, null);
+          } else {
+            callback(null, { key, value: parseInt(reply) });
+          }
+        });
+      } else { // la clave no existe
+        client.dbsize((err, reply) => {
+          if (err) {
+            console.error('Error al obtener el tamaño de la base de datos', err);
+            callback(err, null);
+          } else {
+            //const dbSize = parseInt(reply);
+
+            client.set(key, reply , (err, reply) => {
+              if (err) {
+                console.error('Error al incrementar el tamaño de la base de datos', err);
+                callback(err, null);
+              } else {
+                callback(null, { key, value: reply });
+              }
+            });
+          }
+        });
+      }
+    }
+  });
+}
+/*
+// Uso de ejemplo
+const key = 'mi-clave';
+
+saveKeyValue(key, (err, result) => {
+  if (err) {
+    console.error('Error al guardar el par clave:valor', err);
+  } else {
+    console.log('Par clave:valor guardado:', result);
+  }
+});
+*/
+
+// Genera un ID único utilizando la biblioteca `shortid`
+function generateUniqueId(callback) {
+  const id = Math.floor(Math.random() * 10000);
+
+  // Verificar si la clave ya existe en la base de datos
+  client.exists(id, (err, reply) => {
+    if (err) {
+      console.error('Error al verificar la clave', err);
+      callback(err, null);
+    } else {
+      if (reply === 1) {
+        // La clave ya existe, generar una nueva clave
+        generateUniqueId(callback);
+      } else {
+        // La clave no existe, devolverla
+        callback(null, id);
+      }
+    }
+  });
+}
 // Verificar si una clave existe
 function checkKeyExists(key, callback) {
   client.exists(key, (err, reply) => {
@@ -235,7 +310,7 @@ function checkKeyExists(key, callback) {
 // Uso de ejemplo
 /*
 const key = 'mi-clave'; // La clave que quieres verificar
-
+ 
 checkKeyExists(key, (err, exists) => {
   if (err) {
     console.error('Error al verificar la clave', err);
@@ -243,119 +318,3 @@ checkKeyExists(key, (err, exists) => {
     console.log('La clave existe:', exists);
   }
 });*/
-// Obtener el número de claves en la base de datos
-function getKeysCount(callback) {
-  client.dbsize((err, reply) => {
-    if (err) {
-      console.error('Error al obtener el número de claves', err);
-      callback(err, null);
-    } else {
-      callback(null, reply);
-    }
-  });
-}
-
-// Uso de ejemplo
-getKeysCount((err, count) => {
-  if (err) {
-    console.error('Error al obtener el número de claves', err);
-  } else {
-    console.log('Número de claves:', count);
-  }
-});
-
-// Guardar una clave:valor y comprobar si el valor ya existe
-function saveKeyValue(key, value, callback) {
-  client.get(key, (err, reply) => {
-
-    if (err) {
-      console.error('Error al obtener el valor', err);
-      callback(err, null);
-    } else {
-      console.log('reply ', reply);
-      if (reply !== null) {
-        // El valor ya existe, retornar la clave:valor existente
-        console.log('El valor ya existe', err);
-        callback(null, { key, value: reply });
-      } else {
-        // El valor no existe, guardar la clave:valor
-        client.set(key, value, (err, reply) => {
-          if (err) {
-            console.error('Error al guardar el valor', err);
-            callback(err, null);
-          } else {
-            // Retornar la clave:valor guardada
-            callback(null, { key, value });
-          }
-        });
-      }
-    }
-  });
-}
-/*
-// Uso de ejemplo
-const short_url = 'mi-clave';
-const original_url = 'mi-valor';
-
-saveKeyValue(short_url, original_url, (err, result) => {
-  if (err) {
-    console.error('Error al guardar la clave:valor', err);
-  } else {
-    console.log('Clave:Valor guardado:', result.key, result.value);
-  }
-});*/
-
-
-// Retrieve all the keys and values
-
-/*
-async function getAllKeysAndValues() {
-  let cursor = '0';
-  let keys = [];
-
-  async function scanNextBatch() {
-    const [newCursor, batchKeys] = await client.scanAsync(cursor, 'MATCH', '*', 'COUNT', '100');
-
-    cursor = newCursor;
-
-    if (batchKeys.length > 0) {
-      keys.push(...batchKeys);
-    }
-
-    if (cursor === '0') {
-      // All keys have been scanned, retrieve values
-      const values = await getValues(keys);
-      return values;
-    } else {
-      // Continue scanning
-      return scanNextBatch();
-    }
-  }
-
-  return scanNextBatch();
-}
-
-// Retrieve values for the keys
-async function getValues(keys) {
-  const values = {};
-
-  for (const key of keys) {
-    const dataType = await client.typeAsync(key);
-
-    if (dataType === 'hash') {
-      const value = await client.hgetallAsync(key);
-      values[key] = value;
-    } else if (dataType === 'string') {
-      const value = await client.getAsync(key);
-      values[key] = value;
-    } else {
-      // Data type not supported
-      console.error('Unsupported data type for key', key);
-      throw new Error('Unsupported data type');
-    }
-  }
-
-  return values;
-}
-*/
-
