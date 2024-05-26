@@ -33,9 +33,15 @@ const setAsync = promisify(client.set).bind(client);
 const incrAsync = promisify(client.incr).bind(client);
 const dnsLookupAsync = promisify(dns.lookup).bind(dns);
 app.get('/',  async (req, res) => {
-  const puntero = await getAsync('puntero')
-  .then(() => );
-  !puntero ? await setAsync(`puntero`, 0): console.log(puntero);
+  getAsync('puntero')
+  .then((puntero) => {
+    !puntero ? 
+    setAsync(`puntero`, 0)
+    :
+    console.log(puntero);
+  })
+  .catch((e) = console.error(e));
+  
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
