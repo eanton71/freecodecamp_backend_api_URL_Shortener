@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import express from 'express'
 import cors from 'cors';
-import {promisify} from 'util';
+import { promisify } from 'util';
 import bodyParser from 'body-parser';
 //cliente Redis
 import { createClient } from 'redis';
@@ -32,47 +32,39 @@ const getAsync = promisify(client.get).bind(client);
 const setAsync = promisify(client.set).bind(client);
 const incrAsync = promisify(client.incr).bind(client);
 const dnsLookupAsync = promisify(dns.lookup).bind(dns);
-app.get('/',  async (req, res) => {
-  getAsync('puntero')
-  .then((puntero) => {
-    !puntero ? 
-    setAsync(`puntero`, 0)
-    :
-    console.log(puntero);
-  })
-  .catch((e) = console.error(e));
-  
+const keysAsync = promisify(client.keys).bind(client);
+
+
+app.get('/', async (req, res) => {
+
+  try {
+    const puntero = await getAsync('puntero')
+    !puntero ?
+      await setAsync(`puntero`, 0)
+      :
+      console.log(" El indice esta en : " + puntero);
+
+  } catch (error) {
+    console.error(error);
+  }
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
 app.post('/api/shorturl', async (req, res) => {
-  let urlRegex = /https:\/\/www.|https:\/\/|http:\/\/www.|http:\/\/|\/ /g;
+  //let urlRegex = /https:\/\/www.|https:\/\/|http:\/\/www.|http:\/\/|\/ /g;
   //const url = req.body.url;
   const url = new URL(req.body.url);
   const hostname = url.hostname;
-  console.log(hostname);
-  dnsLookupAsync(hostname)
-  .then((adress) => {
-    console.log(adress)
-
-  })
-  .catch((e) => console.error(e)); 
-  /*
-  console.log(url.replace(urlRegex, ""));
-  dns.lookup(url.replace(urlRegex, ""), async (err, url_Ip) => {
-    if (err) { // URL no valida
-      console.log(url_Ip);
-      return res.json({ error: 'invalid url' });
-    }
-    else {
-      const puntero = await getAsync('puntero')
-      .error();
-      await setAsync(url,puntero);
-      await incrAsync('puntero');
-    }
-  })
-  */
-
+  try {
+    const address = await dnsLookupAsync(hostname);
+    const puntero = await getAsync('puntero');
+    await setAsync(req.body.url, puntero);
+    res.json({original_url : req.body.url, short_url : puntero});
+    await incrAsync(`puntero`);
+  } catch (error) {
+    console.error(error);
+    res.json({ error: 'invalid url' });
+  }
 
 });
 
@@ -92,26 +84,19 @@ app.get('/api/shorturldb', async (req, res) => {
     }
   });
 });
-/*
-  getAllKeysAndValues()
-    .then((values) => {
-      console.log('Keys and Values:', values);
-    })
-    .catch((err) => {
-      console.error('Error retrieving keys and values', err);
-    });
-  res.json({});
-});*/
 app.get('/api/shorturl/:id', async (req, res) => {
 
-  getValueByKey(req.params.id, (err, value) => {
+  const result = await searchValue(req.params.id);
+  console.log(result.key);
+  res.redirect(result.key);
+  /*getValueByKey(req.params.id, (err, value) => {
     if (err) {
       console.error('Error al obtener el valor', err);
     } else {
       res.redirect(value);
     }
   });
-
+*/
 
 });
 
@@ -120,7 +105,19 @@ app.listen(port, function () {
   console.log(`Listening on port ${port}`);
 });
 
+async function searchValue(value) {
+  const keys = await keysAsync('*');
+  const results = [];
 
+  for (const key of keys) {
+    const val = await getAsync(key);
+    if (val === value) {
+      results.push({ key, value });
+    }
+  }
+  
+  return results;
+}
 
 
 // Obtener el valor de una clave
@@ -254,7 +251,7 @@ function saveKeyValue(key, callback) {
           } else {
             //const dbSize = parseInt(reply);
 
-            client.set(key, reply , (err, reply) => {
+            client.set(key, reply, (err, reply) => {
               if (err) {
                 console.error('Error al incrementar el tamaño de la base de datos', err);
                 callback(err, null);
