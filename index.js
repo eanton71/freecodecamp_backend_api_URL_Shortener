@@ -36,7 +36,7 @@ const keysAsync = promisify(client.keys).bind(client);
 
 
 app.get('/', async (req, res) => {
-/*
+
   try {
     const puntero = await getAsync('puntero')
     !puntero ?
@@ -47,7 +47,7 @@ app.get('/', async (req, res) => {
   } catch (error) {
     console.error(error);
   }
-  */
+  
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
@@ -88,6 +88,7 @@ app.get('/api/shorturldb', async (req, res) => {
 app.get('/api/shorturl/:id', async (req, res) => {
 
   const result = await searchValue(req.params.id);
+  console.log(req.params.id);
   console.log(result.key);
   res.redirect(result.key);
   /*getValueByKey(req.params.id, (err, value) => {
