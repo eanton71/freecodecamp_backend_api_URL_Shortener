@@ -36,7 +36,7 @@ const keysAsync = promisify(client.keys).bind(client);
 
 
 app.get('/', async (req, res) => {
-
+/*
   try {
     const puntero = await getAsync('puntero')
     !puntero ?
@@ -47,6 +47,7 @@ app.get('/', async (req, res) => {
   } catch (error) {
     console.error(error);
   }
+  */
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
