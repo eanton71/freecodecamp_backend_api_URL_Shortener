@@ -47,33 +47,40 @@ app.get('/', async (req, res) => {
   } catch (error) {
     console.error(error);
   }
-  
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
 app.post('/api/shorturl', async (req, res) => {
   //let urlRegex = /https:\/\/www.|https:\/\/|http:\/\/www.|http:\/\/|\/ /g;
   //const url = req.body.url;
-  const url = new URL(req.body.url);
-  const hostname = url.hostname;
   try {
-    const address = await dnsLookupAsync(hostname);
-    const puntero = await getAsync('puntero');
-    await setAsync(req.body.url, puntero);
-    res.json({original_url : req.body.url, short_url : puntero});
-    await incrAsync(`puntero`);
+    const url = new URL(req.body.url);
+    const hostname = url.hostname;
+    try {
+      const address = await dnsLookupAsync(hostname);
+      const puntero = await getAsync('puntero');
+      await setAsync(req.body.url, puntero);
+      await setAsync(puntero, req.body.url);
+      res.json({ original_url: req.body.url, short_url: puntero });
+      await incrAsync(`puntero`);
+    } catch (error) {
+      console.error(error);
+      res.json({ error: 'invalid url' });
+    }
   } catch (error) {
-    console.error(error);
     res.json({ error: 'invalid url' });
   }
+  
 
 });
 
 
 // Your first API endpoint
 app.get('/api/hello/:hola', async (req, res) => {
+  console.log('req.params.id: ', req.params);
   res.json({ greeting: 'hello API' + req.params.hola });
 });
+
 app.get('/api/shorturldb', async (req, res) => {
   // Usage
   getAllKeysAndValues((err, values) => {
@@ -85,21 +92,17 @@ app.get('/api/shorturldb', async (req, res) => {
     }
   });
 });
+
 app.get('/api/shorturl/:id', async (req, res) => {
-
-  const result = await searchValue(req.params.id);
-  console.log(req.params.id);
-  console.log(result.key);
-  res.redirect(result.key);
-  /*getValueByKey(req.params.id, (err, value) => {
-    if (err) {
-      console.error('Error al obtener el valor', err);
-    } else {
-      res.redirect(value);
-    }
-  });
-*/
-
+  const id = req.params.id;
+  const short_url = await getAsync(id);
+  if (short_url) {
+    console.log('short_url: ', short_url);
+    res.redirect(short_url);
+  }
+  else
+    res.status(404).send('URL no encontrada');
+  
 });
 
 
@@ -113,11 +116,12 @@ async function searchValue(value) {
 
   for (const key of keys) {
     const val = await getAsync(key);
+    //console.log('key: ', key, ' val: ', val);
     if (val === value) {
+      // console.log('key: ', key, ' value: ', value);
       results.push({ key, value });
     }
   }
-  
   return results;
 }
 
